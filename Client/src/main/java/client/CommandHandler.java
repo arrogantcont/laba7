@@ -1,8 +1,10 @@
 package client;
 
 import Exeptions.CommandException;
+import commons.User;
 import commons.commands.*;
 import commons.model.*;
+import lombok.Data;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -10,12 +12,15 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.util.Date;
 
+@Data
 public class CommandHandler {
     ServerConnection serverConnection;
     public BufferedReader reader;
     private boolean inputFromFile = false;
     private BufferedReader script;
     private boolean isMultiLineCommand = false;
+    private boolean isAuthorised = false;
+    private User user;
 
     public CommandHandler(BufferedReader reader, int port, String host) throws IOException {
         this.reader = reader;
@@ -27,31 +32,31 @@ public class CommandHandler {
         String[] commandParts = command.split(" ");
         switch (commandParts[0]) {
             case "history":
-                return new HistoryCommand();
+                return new HistoryCommand(user);
             case "clear":
-                return new ClearCommand();
+                return new ClearCommand(user);
             case "help":
-                return new HelpCommand();
+                return new HelpCommand(user);
             case "info":
-                return new InfoCommand();
+                return new InfoCommand(user);
             case "show":
-                return new ShowCommand();
+                return new ShowCommand(user);
             case "add":
                 return readTicket();
             case "exit":
-                return new ExitCommand();
+                return new ExitCommand(user);
             case "add_if_max":
                 return addIfMax();
             case "add_if_min":
                 return addIfMin();
             case "print_field_ascending_price":
-                return new Print_field_ascending_priceCommand();
+                return new Print_field_ascending_priceCommand(user);
             case "print_field_descending_refundable":
-                return new Print_field_descending_refundableCommand();
+                return new Print_field_descending_refundableCommand(user);
             case "remove_by_id":
                 try {
                     if ((commandParts.length == 2) && (Integer.parseInt(commandParts[1]) > 0)) {
-                        return new Remove_By_IdCommand(Integer.parseInt(commandParts[1]));
+                        return new Remove_By_IdCommand(Integer.parseInt(commandParts[1]), user);
                     }
                 } catch (NumberFormatException e) {
                     throw new CommandException("Введите команду в формате: update *id билета (тип данных int), который хотите обновить*");
@@ -59,7 +64,7 @@ public class CommandHandler {
             case "filter_greater_than_price":
                 try {
                     if ((commandParts.length == 2) && (Integer.parseInt(commandParts[1]) > 0)) {
-                        return new Filter_greater_than_priceCommand(Integer.parseInt(commandParts[1]));
+                        return new Filter_greater_than_priceCommand(Integer.parseInt(commandParts[1]), user);
                     }
                 } catch (NumberFormatException e) {
                     throw new CommandException("Введите команду в формате: filter_greater_than_price *price билета (тип данных int)*");
@@ -69,7 +74,7 @@ public class CommandHandler {
                     if (Integer.parseInt(commandParts[1]) > 0) {
                         Ticket updatedTicket = readTicket().getTicket();
                         updatedTicket.setTicketId(Integer.parseInt(commandParts[1]));
-                        return new UpdateCommand(updatedTicket);
+                        return new UpdateCommand(updatedTicket, user);
                     }
                 } catch (IndexOutOfBoundsException e) {
                     throw new CommandException("Не хватает данных для команды");
@@ -90,21 +95,38 @@ public class CommandHandler {
                 } catch (Exception e) {
                     throw new CommandException("Доступа к файлу нет, либо вы не указали файл со скриптом");
                 }
-                return new Execute_scriptCommand();
-
+                return new Execute_scriptCommand(user);
+            case "login":
+                return new LoginCommand(login());
+            case "register":
+                return new RegisterCommand(register());
 
         }
-        return new UnknownCommand();
+        return new UnknownCommand(user);
+    }
+
+    private User login() throws IOException, CommandException {
+        String username = null;
+        while (username == null) {
+            System.out.println("Имя пользователя (не должно быть пустым)");
+            username = readLine();
+        }
+        String pass = null;
+        while (pass == null) {
+            System.out.println("Пароль (поле не должно быть пустым)");
+            pass = readLine();
+        }
+        return new User(username, pass);
     }
 
     private Add_IF_MinCommand addIfMin() throws IOException, CommandException {
         Ticket retTick = readTicket().getTicket();
-        return new Add_IF_MinCommand(retTick);
+        return new Add_IF_MinCommand(retTick, user);
     }
 
     private Add_IF_MaxCommand addIfMax() throws IOException, CommandException {
         Ticket retTick = readTicket().getTicket();
-        return new Add_IF_MaxCommand(retTick);
+        return new Add_IF_MaxCommand(retTick, user);
     }
 
     private AddCommand readTicket() throws IOException, CommandException, NullPointerException {
@@ -244,16 +266,22 @@ public class CommandHandler {
                 .price(price)
                 .refundable(refundable)
                 .type(ticketType)
+                .user(user)
                 .build();
         isMultiLineCommand = false;
-        return new AddCommand(ticket);
+        return new AddCommand(ticket, user);
 
     }
 
 
     public String handleInput() throws IOException, CommandException {
         String s = readLine();
-        return serverConnection.sendCommand(handleCommand(s));
+        Command command = handleCommand(s);
+        if ((command.getCommand().equals("login") || command.getCommand().equals("register")) && !isAuthorised)
+            return serverConnection.sendCommand(command);
+        else if (isAuthorised) return serverConnection.sendCommand(command);
+        else return "Вы не авторизованы";
+
     }
 
 
@@ -278,4 +306,23 @@ public class CommandHandler {
         } else return reader.readLine();
     }
 
+    private User register() throws IOException, CommandException {
+        String username = null;
+        while (username == null) {
+            System.out.println("Имя пользователя (поле не должно быть пустым)");
+            username = readLine();
+        }
+        boolean invalidPassword = true;
+        String pass1 = null;
+        String pass2;
+        while (invalidPassword) {
+            System.out.println("Пароль (поле не должно быть пустым)");
+            pass1 = readLine();
+            System.out.println("Введите пароль повторно");
+            pass2 = readLine();
+            if (pass1.equals(pass2) && !(pass1 == null)) invalidPassword = false;
+            else System.out.println("Введенные пароли не совпадают");
+        }
+        return new User(username, pass1);
+    }
 }

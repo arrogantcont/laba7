@@ -1,36 +1,36 @@
 package server.lab6;
 
-import server.io.TicketReader;
-import server.io.TicketWriter;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import commons.User;
 import commons.model.Ticket;
+import lombok.Data;
 import lombok.SneakyThrows;
+import server.DB.DataBaseConnection;
 
 import java.io.IOException;
-import java.util.ArrayDeque;
-import java.util.Date;
-import java.util.Iterator;
+import java.sql.SQLException;
+import java.util.*;
 
 import static java.util.Arrays.asList;
 import static java.util.Arrays.sort;
 
+@Data
 /**
  * Класс, работающий с коллекцей билетов
  */
 public class TicketOffice {
-    private ArrayDeque<Ticket> tickets = new ArrayDeque<>();
+    private Collection<Ticket> tickets = new ArrayDeque<>();
     private final GsonBuilder builder = new GsonBuilder();
     private final Gson gson = builder.create();
-    private final String path;
+    private final DataBaseConnection dataBaseConnection;
 
     @SneakyThrows
-    public TicketOffice(String path) {
-        this.path = path;
-        Ticket[] tickets = readTicketsFromFile();
-        if (tickets == null) this.tickets = new ArrayDeque<>();
-        else this.tickets = new ArrayDeque<>(asList(tickets));
-
+    public TicketOffice(DataBaseConnection dataBaseConnection) {
+        this.dataBaseConnection = dataBaseConnection;
+        Ticket[] tickets = readTicketsFromDB();
+        if (tickets == null) this.tickets = Collections.synchronizedCollection(new ArrayDeque<>());
+        else this.tickets = Collections.synchronizedCollection(new ArrayDeque<>(asList(tickets)));
     }
 
     /**
@@ -52,21 +52,12 @@ public class TicketOffice {
         return new Pair<>(maxTicketId, maxEventId);
     }
 
-    @SneakyThrows
-    public void save() {
-        saveTicketsToFile(tickets);
-    }
 
-    private void saveTicketsToFile(ArrayDeque<Ticket> obj) throws IOException {
-        TicketWriter ticketWriter = new TicketWriter(path);
-        String s = gson.toJson(obj);
-        ticketWriter.writeToFile(s);
-    }
-
-    public Ticket[] readTicketsFromFile() throws IOException {
-        TicketReader ticketReader = new TicketReader(path);
-        String s = ticketReader.readFromFile();
-        return gson.fromJson(s, Ticket[].class);//мы записываем билеты как элты массива, поэтому поэтому обращаемся к ним аналогично
+    public Ticket[] readTicketsFromDB() throws IOException {
+//        TicketReader ticketReader = new TicketReader(path);
+//        String s = ticketReader.readFromFile();
+//        return gson.fromJson(s, Ticket[].class);//мы записываем билеты как элты массива, поэтому поэтому обращаемся к ним аналогично
+        return null;
     }
 
     public String getAllTickets() {
@@ -78,9 +69,18 @@ public class TicketOffice {
         return sb.toString();
     }
 
-    public String addNewTicket(Ticket ticket) {
+    public String addNewTicket(Ticket ticket, User user) throws SQLException {
+        ticket.setUser(user);
+        dataBaseConnection.addTicket(ticket);
         tickets.add(ticket);
         return "Билет добавлен";
+    }
+
+    public String updateTicket(Ticket ticket, User user) throws SQLException {
+        ticket.setUser(user);
+        dataBaseConnection.updateTicket(ticket);
+        tickets.add(ticket);
+        return "Билет обновлён";
     }
 
     /**
@@ -100,7 +100,8 @@ public class TicketOffice {
         return "Коллекция пуста";
     }
 
-    public String remove_by_id(int id) {
+    public String remove_by_id(int id) throws SQLException {
+        dataBaseConnection.remove_by_if_from_DB(id);
         if (tickets.removeIf(ticket -> ticket.getTicketId() == id)) return "удалили успешно";
         else return "билета с таким id нет, попробуйте ещё раз";
     }
@@ -121,16 +122,25 @@ public class TicketOffice {
         return ticketPresent;
     }
 
-    /**
-     * Очищаем коллекцию
-     */
-    public void clear() {
-        tickets.clear();
+    public boolean checkUser(int id, User user) {
+        for (Ticket ticket : tickets) {
+            if (ticket.getTicketId() == id) {
+                if (ticket.getUser().equals(user)) return true;
+            }
+        }
+        return false;
     }
 
-    public Class<? extends ArrayDeque> info() {
-        return tickets.getClass();
+    /**
+     * Очищаем коллекцию
+     *
+     * @param user
+     */
+    public void clear(User user) throws SQLException {
+        dataBaseConnection.clearDB(user.getUsername());
+        tickets.removeIf(ticket -> ticket.getUser().getUsername().equals(user.getUsername()));
     }
+
 
     /**
      * @return размер коллекции
@@ -193,9 +203,9 @@ public class TicketOffice {
     }
 
     public Date findCreationDate() {
-        Date trueDate = null;
+        Date trueDate =new Date();
         for (Ticket ticket : tickets) {
-            if (ticket.getTicketId() == 1) trueDate = ticket.getCreationDate();
+            if (ticket.getCreationDate().getTime() < trueDate.getTime()) trueDate = ticket.getCreationDate();
         }
         return trueDate;
     }

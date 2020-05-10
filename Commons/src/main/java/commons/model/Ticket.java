@@ -1,12 +1,13 @@
 package commons.model;
 
+import commons.User;
 import lombok.Builder;
 import lombok.Data;
 
 import java.io.Serializable;
 
-@Data
 @Builder
+@Data
 /**
  * Сам класс билета
  */
@@ -20,10 +21,12 @@ public class Ticket implements Comparable<Ticket>, Serializable {
     private String comment; //Поле не может быть null
     private boolean refundable;
     private TicketType type; //Поле может быть null
-    private Event event; //Поле может быть nul
+    private Event event; //Поле может быть null
+    private User user;
 
     @Override
     public int compareTo(Ticket ticket) {
         return price - ticket.price;
     }
+
 }

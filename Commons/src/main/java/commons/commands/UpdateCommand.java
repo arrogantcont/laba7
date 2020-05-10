@@ -1,5 +1,6 @@
 package commons.commands;
 
+import commons.User;
 import commons.model.Ticket;
 import lombok.Data;
 
@@ -7,8 +8,8 @@ import lombok.Data;
 public class UpdateCommand extends Command {
     Ticket ticket;
 
-    public UpdateCommand(Ticket ticket) {
-        super("update");
+    public UpdateCommand(Ticket ticket, User user) {
+        super("update", user);
         this.ticket = ticket;
     }
 }

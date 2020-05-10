@@ -1,7 +1,9 @@
 package commons.commands;
 
+import commons.User;
+
 public class ClearCommand extends Command {
-    public ClearCommand() {
-        super("clear");
+    public ClearCommand(User user) {
+        super("clear", user);
     }
 }

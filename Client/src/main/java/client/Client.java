@@ -13,6 +13,7 @@ import java.util.NoSuchElementException;
 public class Client {
     private static String host = "localhost";
     private static int port = 8080;
+
     public static void main(String[] args) {
         try (BufferedReader reader = new BufferedReader(new InputStreamReader(System.in))) {
             if (args.length > 0)
@@ -20,6 +21,7 @@ public class Client {
             if (args.length > 1)
                 host = args[1];
             CommandHandler commandHandler = new CommandHandler(reader, port, host);
+            commandHandler.getServerConnection().setCommandHandler(commandHandler);
             System.out.println("Введите команду");
             while (true) {
                 try {

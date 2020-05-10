@@ -1,0 +1,4 @@
+client\Client.class
+Exeptions\CommandException.class
+client\CommandHandler.class
+client\ServerConnection.class

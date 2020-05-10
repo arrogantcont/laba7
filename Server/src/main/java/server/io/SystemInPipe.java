@@ -69,7 +69,7 @@ public class SystemInPipe {
                         break;
                     }
 
-                    ((Buffer)buffer).clear().limit(count);
+                    ((Buffer) buffer).clear().limit(count);
 
                     out.write(buffer);
                 }
